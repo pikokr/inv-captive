@@ -1,125 +1,94 @@
-import java.io.OutputStream
+import org.jetbrains.kotlin.gradle.plugin.getKotlinPluginVersion
 
 plugins {
-    kotlin("jvm") version "1.4.21"
-    id("com.github.johnrengelman.shadow") version "5.2.0"
-//    `maven-publish`
+    idea
+    alias(libs.plugins.kotlin.jvm)
+    alias(libs.plugins.paperweight)
 }
 
-val relocate = (findProperty("relocate") as? String)?.toBoolean() ?: true
+val pluginName: String by project
+val pluginVersion: String by project
+
+group = project.properties["group"]!!
+version = pluginVersion
+
+java {
+    toolchain.languageVersion.set(JavaLanguageVersion.of(17))
+}
 
 repositories {
-    mavenLocal()
     mavenCentral()
-    maven(url = "https://papermc.io/repo/repository/maven-public/")
-    maven(url = "https://jitpack.io/")
 }
 
 dependencies {
-    compileOnly(kotlin("stdlib"))
-    compileOnly("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.4.1")
-    compileOnly("com.destroystokyo.paper:paper-api:1.16.5-R0.1-SNAPSHOT")
-    compileOnly("org.spigotmc:spigot:1.16.5-R0.1-SNAPSHOT")
+    implementation(kotlin("stdlib"))
+    implementation(kotlin("reflect"))
 
-    implementation("com.github.monun:tap:3.3.2")
-    implementation("com.github.monun:kommand:0.7.0")
+    implementation("xyz.icetang.lib:kommand-api:3.1.8")
 
-//    testImplementation("org.junit.jupiter:junit-jupiter-api:5.7.0")
-//    testImplementation("org.junit.jupiter:junit-jupiter-engine:5.7.0")
-//    testImplementation("org.mockito:mockito-core:3.6.28")
-//    testImplementation("org.spigotmc:spigot:1.16.5-R0.1-SNAPSHOT")
+    paperweight.paperDevBundle(libs.versions.paper)
+}
+
+extra.apply {
+    set("pluginName", pluginName)
+    set("pluginVersion", pluginVersion)
+    set("kotlinVersion", libs.versions.kotlin.get())
+    set("paperVersion", libs.versions.paper.get().split('.').take(2).joinToString("."))
+
+    // from monun/paper-sample
+    val libraries = LinkedHashSet<String>()
+
+    configurations.findByName("implementation")?.allDependencies?.forEach { dependency ->
+        val group = dependency.group ?: error("group is null")
+        var name = dependency.name ?: error("name is null")
+        var version = dependency.version
+
+        if (group == "org.jetbrains.kotlin" && version == null) {
+            version = getKotlinPluginVersion()
+        } else if ((group == "io.github.monun" || group == "xyz.icetang.lib") && name.endsWith("-api")) {
+            name = name.removeSuffix("api") + "core"
+        }
+
+        requireNotNull(version) { "version is null" }
+        require(version != "latest.release") { "version is latest.release" }
+
+        libraries += "$group:$name:$version"
+    }
+
+    set("pluginLibraries", libraries.joinToString("\n  ") { "- $it" })
 }
 
 tasks {
-    withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile> {
-        kotlinOptions.jvmTarget = "11"
-    }
     processResources {
-        filesMatching("**/*.yml") {
+        filesMatching("*.yml") {
             expand(project.properties)
+            expand(extra.properties)
         }
     }
-    test {
-        useJUnitPlatform()
+
+    jar {
+        archiveFileName = "${project.name}.jar"
+    }
+
+    create<Copy>("buildJar") {
+        from(reobfJar)
+        into(file("build").resolve("outputs"))
+    }
+
+    create<Copy>("serverJar") {
+        from(reobfJar)
+
+        val plugins = file(".server/plugins")
+        val updateDir = plugins.resolve("update")
+
+        if (plugins.resolve("${project.name}-$version.jar").exists()) {
+            into(updateDir)
+        } else {
+            into(plugins)
+        }
+
         doLast {
-            file("logs").deleteRecursively()
-        }
-    }
-    create<Jar>("sourcesJar") {
-        from(sourceSets["main"].allSource)
-        archiveClassifier.set("sources")
-    }
-    shadowJar {
-        archiveBaseName.set(project.property("pluginName").toString())
-        archiveVersion.set("") // For bukkit plugin update
-        archiveClassifier.set("") // Remove 'all'
-
-        if (relocate) {
-            relocate("com.github.monun.kommand", "${rootProject.group}.${rootProject.name}.kommand")
-            relocate("com.github.monun.tap", "${rootProject.group}.${rootProject.name}.tap")
-        }
-
-        doFirst {
-            println("relocate = $relocate")
-        }
-    }
-    build {
-        dependsOn(shadowJar)
-    }
-    create<Copy>("paper") {
-        from(shadowJar)
-        var dest = File(rootDir, ".paper/plugins")
-        // if plugin.jar exists in plugins change dest to plugins/update
-        if (File(dest, shadowJar.get().archiveFileName.get()).exists()) dest = File(dest, "update")
-        into(dest)
-    }
-    create<DefaultTask>("setupWorkspace") {
-        doLast {
-            val versions = arrayOf(
-                "1.16.5"
-            )
-            val buildtoolsDir = file(".buildtools")
-            val buildtools = File(buildtoolsDir, "BuildTools.jar")
-
-            val maven = File(System.getProperty("user.home"), ".m2/repository/org/spigotmc/spigot/")
-            val repos = maven.listFiles { file: File -> file.isDirectory } ?: emptyArray()
-            val missingVersions = versions.filter { version ->
-                repos.find { it.name.startsWith(version) }?.also { println("Skip downloading spigot-$version") } == null
-            }.also { if (it.isEmpty()) return@doLast }
-
-            val download by registering(de.undercouch.gradle.tasks.download.Download::class) {
-                src("https://hub.spigotmc.org/jenkins/job/BuildTools/lastSuccessfulBuild/artifact/target/BuildTools.jar")
-                dest(buildtools)
-            }
-            download.get().download()
-
-            runCatching {
-                for (v in missingVersions) {
-                    println("Downloading spigot-$v...")
-
-                    javaexec {
-                        workingDir(buildtoolsDir)
-                        main = "-jar"
-                        args = listOf("./${buildtools.name}", "--rev", v)
-                        // Silent
-                        standardOutput = OutputStream.nullOutputStream()
-                        errorOutput = OutputStream.nullOutputStream()
-                    }
-                }
-            }.onFailure {
-                it.printStackTrace()
-            }
-            buildtoolsDir.deleteRecursively()
+            delete(updateDir.resolve("RELOAD"))
         }
     }
 }
-
-//publishing {
-//    publications {
-//        create<MavenPublication>(project.property("pluginName").toString()) {
-//            artifactId = project.name
-//            from(components["java"])
-//            artifact(tasks["sourcesJar"])
-//        }
-//    }
-//}

@@ -1,10 +1,9 @@
 package com.github.monun.invcaptive.plugin
 
+import net.kyori.adventure.text.Component
+import net.kyori.adventure.text.format.NamedTextColor
 import org.bukkit.Bukkit
-import org.bukkit.ChatColor
 import org.bukkit.Material
-import org.bukkit.command.Command
-import org.bukkit.command.CommandSender
 import org.bukkit.configuration.file.YamlConfiguration
 import org.bukkit.entity.Firework
 import org.bukkit.event.EventHandler
@@ -17,6 +16,7 @@ import org.bukkit.event.inventory.InventoryClickEvent
 import org.bukkit.event.player.*
 import org.bukkit.event.world.WorldSaveEvent
 import org.bukkit.plugin.java.JavaPlugin
+import xyz.icetang.lib.kommand.kommand
 import java.io.File
 import java.util.*
 import kotlin.random.Random.Default.nextLong
@@ -34,7 +34,7 @@ class InvCaptivePlugin : JavaPlugin(), Listener {
         server.pluginManager.registerEvents(this, this)
         loadInventory()
 
-        val list = Material.values().filter { it.isBlock && !it.isAir }.shuffled(Random(seed))
+        val list = Material.entries.filter { it.isBlock && !it.isAir }.shuffled(Random(seed))
         val count = 9 * 4 + 5
 
         val map = EnumMap<Material, Int>(Material::class.java)
@@ -43,7 +43,16 @@ class InvCaptivePlugin : JavaPlugin(), Listener {
             map[list[i]] = i
         }
 
+        println(map)
+
         this.slotsByType = map
+
+        kommand {
+            register("invcaptive") {
+                requires { sender.hasPermission("invcaptive.command") }
+                executes { InvCaptive.captive() }
+            }
+        }
 
         for (player in Bukkit.getOnlinePlayers()) {
             InvCaptive.patch(player)
@@ -130,16 +139,26 @@ class InvCaptivePlugin : JavaPlugin(), Listener {
     @EventHandler(ignoreCancelled = true)
     fun onBlockBreak(event: BlockBreakEvent) {
         slotsByType[event.block.type]?.let {
+            println(it)
             if (InvCaptive.release(it)) {
                 for (player in Bukkit.getOnlinePlayers()) {
                     player.world.spawn(player.location, Firework::class.java)
                 }
 
-                Bukkit.broadcastMessage(
-                    "${ChatColor.RED}${event.player.name}${ChatColor.RESET}님이 ${ChatColor.GOLD}${
-                        event.block.translationKey.removePrefix("block.minecraft.")
-                    } ${ChatColor.RESET}블록을 파괴하여 인벤토리 잠금이 한칸 해제되었습니다!"
+                Bukkit.broadcast(
+                    Component.text(event.player.name)
+                        .hoverEvent(event.player.asHoverEvent())
+                        .color(NamedTextColor.RED)
+                        .append(Component.text("님이 "))
+                        .append(Component.translatable(event.block.translationKey()).color(NamedTextColor.GOLD))
+                        .append(Component.text("블록을 파괴하여 인벤토리 잠금이 한칸 해제되었습니다!"))
                 )
+
+//                Bukkit.broadcastMessage(
+//                    "${ChatColor.RED}${event.player.name}${ChatColor.RESET}님이 ${ChatColor.GOLD}${
+//                        event.block.translationKey.removePrefix("block.minecraft.")
+//                    } ${ChatColor.RESET}블록을 파괴하여 인벤토리 잠금이 한칸 해제되었습니다!"
+//                )
             }
         }
     }
@@ -183,11 +202,5 @@ class InvCaptivePlugin : JavaPlugin(), Listener {
                 }
             }
         }
-    }
-
-    override fun onCommand(sender: CommandSender, command: Command, label: String, args: Array<out String>): Boolean {
-        InvCaptive.captive()
-
-        return true
     }
 }

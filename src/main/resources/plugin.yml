@@ -1,9 +1,6 @@
-name: $pluginName
-main: $pluginMain
-depend: [ Kotlin, ProtocolLib ]
-api-version: '1.16'
-version: $version
-
-commands:
-  invcaptive:
-    permission: invcaptive.command
+name: ${pluginName}
+version: ${pluginVersion}
+main: ${pluginMain}
+api-version: ${paperVersion}
+libraries:
+  ${pluginLibraries}

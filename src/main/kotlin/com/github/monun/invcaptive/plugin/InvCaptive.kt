@@ -1,43 +1,45 @@
 package com.github.monun.invcaptive.plugin
 
 import com.google.common.collect.ImmutableList
-import net.minecraft.server.v1_16_R3.*
+import net.kyori.adventure.text.Component
+import net.kyori.adventure.text.format.NamedTextColor
+import net.minecraft.core.NonNullList
+import net.minecraft.world.item.ItemStack
+import net.minecraft.world.item.Items
+import net.minecraft.world.level.block.Blocks
 import org.bukkit.Bukkit
-import org.bukkit.ChatColor
 import org.bukkit.Material
 import org.bukkit.configuration.ConfigurationSection
 import org.bukkit.configuration.file.YamlConfiguration
-import org.bukkit.craftbukkit.v1_16_R3.entity.CraftPlayer
-import org.bukkit.craftbukkit.v1_16_R3.inventory.CraftItemStack
+import org.bukkit.craftbukkit.v1_20_R2.entity.CraftPlayer
+import org.bukkit.craftbukkit.v1_20_R2.inventory.CraftItemStack
 import org.bukkit.entity.Player
 import kotlin.math.min
 
 object InvCaptive {
     private val items: NonNullList<ItemStack>
-
     private val armor: NonNullList<ItemStack>
-
-    private val extraSlots: NonNullList<ItemStack>
+    private val offhand: NonNullList<ItemStack>
 
     private val contents: List<NonNullList<ItemStack>>
 
     init {
-        val inv = PlayerInventory(null)
+        val inv = net.minecraft.world.entity.player.Inventory(null)
 
         items = inv.items
         armor = inv.armor
-        extraSlots = inv.extraSlots
-        contents = ImmutableList.of(items, armor, extraSlots)
+        offhand = inv.offhand
+        contents = ImmutableList.of(items, armor, offhand)
     }
 
     private const val ITEMS = "items"
     private const val ARMOR = "armor"
-    private const val EXTRA_SLOTS = "extraSlots"
+    private const val OFFHAND = "offhand"
 
     fun load(yaml: YamlConfiguration) {
         yaml.loadItemStackList(ITEMS, items)
         yaml.loadItemStackList(ARMOR, armor)
-        yaml.loadItemStackList(EXTRA_SLOTS, extraSlots)
+        yaml.loadItemStackList(OFFHAND, offhand)
     }
 
     @Suppress("UNCHECKED_CAST")
@@ -47,6 +49,7 @@ object InvCaptive {
 
         for (i in 0 until min(list.count(), items.count())) {
             list[i] = items[i]
+
         }
     }
 
@@ -55,7 +58,7 @@ object InvCaptive {
 
         yaml.setItemStackList(ITEMS, items)
         yaml.setItemStackList(ARMOR, armor)
-        yaml.setItemStackList(EXTRA_SLOTS, extraSlots)
+        yaml.setItemStackList(OFFHAND, offhand)
 
         return yaml
     }
@@ -65,13 +68,14 @@ object InvCaptive {
     }
 
     fun patch(player: Player) {
-        val entityplayer = (player as CraftPlayer).handle
-        val playerInv = entityplayer.inventory
+        val nmsPlayer = (player as CraftPlayer).handle
 
-        playerInv.setField("items", items)
-        playerInv.setField("armor", armor)
-        playerInv.setField("extraSlots", extraSlots)
-        playerInv.setField("f", contents)
+        val playerInv = nmsPlayer.inventory
+
+        playerInv.setField("i", items)
+        playerInv.setField("j", armor)
+        playerInv.setField("k", offhand)
+        playerInv.setField("o", contents)
     }
 
     private fun Any.setField(name: String, value: Any) {
@@ -84,10 +88,9 @@ object InvCaptive {
 
     fun captive() {
         val item = ItemStack(Blocks.BARRIER)
-        items.replaceAll { item.cloneItemStack() }
-        armor.replaceAll { item.cloneItemStack() }
-        extraSlots.replaceAll { item.cloneItemStack() }
-        items[0] = ItemStack.b
+        items.replaceAll { item.copy() }
+        armor.replaceAll { item.copy() }
+        offhand.replaceAll { item.copy() }
 
         for (player in Bukkit.getOnlinePlayers()) {
             player.updateInventory()
@@ -96,7 +99,7 @@ object InvCaptive {
 
     private val releaseSlotItem = CraftItemStack.asNMSCopy(org.bukkit.inventory.ItemStack(Material.GOLDEN_APPLE).apply {
         itemMeta = itemMeta!!.apply {
-            setDisplayName("${ChatColor.GOLD}새로운 인벤토리")
+            displayName(Component.text("새로운 인벤토리").color(NamedTextColor.GOLD))
         }
     })
 
@@ -105,21 +108,22 @@ object InvCaptive {
             slot < 36 -> {
                 items.replaceBarrier(slot, releaseSlotItem)
             }
+
             slot < 40 -> {
                 armor.replaceBarrier(slot - 36, releaseSlotItem)
             }
+
             else -> {
-                extraSlots.replaceBarrier(slot - 40, releaseSlotItem)
+                offhand.replaceBarrier(slot - 40, releaseSlotItem)
             }
         }
     }
 
     private fun NonNullList<ItemStack>.replaceBarrier(index: Int, item: ItemStack): Boolean {
         val current = this[index]
-        val currentItem = current.item
 
-        if (currentItem is ItemBlock && currentItem.block == Blocks.BARRIER) {
-            this[index] = item.cloneItemStack()
+        if (current.`is`(Items.BARRIER)) {
+            this[index] = item.copy()
             return true
         }
         return false
