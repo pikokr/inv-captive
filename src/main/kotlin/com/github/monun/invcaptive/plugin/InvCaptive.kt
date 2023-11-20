@@ -89,6 +89,7 @@ object InvCaptive {
     fun captive() {
         val item = ItemStack(Blocks.BARRIER)
         items.replaceAll { item.copy() }
+        items[0] = ItemStack(Blocks.AIR)
         armor.replaceAll { item.copy() }
         offhand.replaceAll { item.copy() }
 
