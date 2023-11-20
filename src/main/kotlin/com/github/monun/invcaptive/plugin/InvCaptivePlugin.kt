@@ -34,7 +34,14 @@ class InvCaptivePlugin : JavaPlugin(), Listener {
         server.pluginManager.registerEvents(this, this)
         loadInventory()
 
-        val list = Material.entries.filter { it.isBlock && !it.isAir }.shuffled(Random(seed))
+        val excluded = arrayOf<Material>(
+            Material.STRUCTURE_VOID
+        )
+
+        val list = Material.entries.filter {
+            it.isBlock && !it.isAir && it.hardness >= 0 && !it.isEmpty && !excluded.contains(it)
+        }
+            .shuffled(Random(seed))
         val count = 9 * 4 + 5
 
         val map = EnumMap<Material, Int>(Material::class.java)
@@ -42,8 +49,6 @@ class InvCaptivePlugin : JavaPlugin(), Listener {
         for (i in 0 until count) {
             map[list[i]] = i
         }
-
-        println(map)
 
         this.slotsByType = map
 
@@ -68,11 +73,9 @@ class InvCaptivePlugin : JavaPlugin(), Listener {
         val file = File(folder, "config.yml")
         val config = YamlConfiguration()
 
-        if (file.exists())
-            config.load(file)
+        if (file.exists()) config.load(file)
 
-        if (config.contains("seed"))
-            return config.getLong("seed")
+        if (config.contains("seed")) return config.getLong("seed")
 
         val seed = nextLong()
         config.set("seed", seed)
@@ -139,19 +142,21 @@ class InvCaptivePlugin : JavaPlugin(), Listener {
     @EventHandler(ignoreCancelled = true)
     fun onBlockBreak(event: BlockBreakEvent) {
         slotsByType[event.block.type]?.let {
-            println(it)
             if (InvCaptive.release(it)) {
                 for (player in Bukkit.getOnlinePlayers()) {
                     player.world.spawn(player.location, Firework::class.java)
                 }
 
                 Bukkit.broadcast(
-                    Component.text(event.player.name)
-                        .hoverEvent(event.player.asHoverEvent())
-                        .color(NamedTextColor.RED)
+                    Component.text()
+                        .append(
+                            Component.text(event.player.name).hoverEvent(event.player.asHoverEvent())
+                                .color(NamedTextColor.RED)
+                        )
                         .append(Component.text("님이 "))
                         .append(Component.translatable(event.block.translationKey()).color(NamedTextColor.GOLD))
                         .append(Component.text("블록을 파괴하여 인벤토리 잠금이 한칸 해제되었습니다!"))
+                        .build()
                 )
 
 //                Bukkit.broadcastMessage(
