@@ -34,8 +34,15 @@ class InvCaptivePlugin : JavaPlugin(), Listener {
         server.pluginManager.registerEvents(this, this)
         loadInventory()
 
-        val excluded = arrayOf<Material>(
-            Material.STRUCTURE_VOID
+        val excluded = setOf(
+            Material.STRUCTURE_VOID,
+            Material.WATER,
+            Material.LAVA,
+            Material.DIAMOND_ORE,
+            Material.DEEPSLATE_COAL_ORE,
+            Material.PLAYER_HEAD,
+            Material.PLAYER_WALL_HEAD,
+            Material.DRAGON_EGG
         )
 
         val list = Material.entries.filter {
