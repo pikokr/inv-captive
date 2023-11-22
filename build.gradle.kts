@@ -25,6 +25,7 @@ dependencies {
     implementation(kotlin("reflect"))
 
     implementation("xyz.icetang.lib:kommand-api:3.1.8")
+    implementation("io.github.monun:invfx-api:3.3.2")
 
     paperweight.paperDevBundle(libs.versions.paper)
 }

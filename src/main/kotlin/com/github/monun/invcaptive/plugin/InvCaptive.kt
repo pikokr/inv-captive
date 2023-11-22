@@ -17,6 +17,9 @@ import org.bukkit.entity.Player
 import kotlin.math.min
 
 object InvCaptive {
+    val triedBlocks = mutableSetOf<Material>()
+    val pinnedBlocks = mutableSetOf<Material>()
+
     private val items: NonNullList<ItemStack>
     private val armor: NonNullList<ItemStack>
     private val offhand: NonNullList<ItemStack>
@@ -36,6 +39,13 @@ object InvCaptive {
     private const val ARMOR = "armor"
     private const val OFFHAND = "offhand"
 
+    fun loadProgressFile(yaml: YamlConfiguration) {
+        triedBlocks.clear()
+        triedBlocks += yaml.getStringList("items").map { Material.valueOf(it) }
+        pinnedBlocks.clear()
+        pinnedBlocks += yaml.getStringList("pinnedItems").map { Material.valueOf(it) }
+    }
+
     fun load(yaml: YamlConfiguration) {
         yaml.loadItemStackList(ITEMS, items)
         yaml.loadItemStackList(ARMOR, armor)
@@ -49,7 +59,6 @@ object InvCaptive {
 
         for (i in 0 until min(list.count(), items.count())) {
             list[i] = items[i]
-
         }
     }
 

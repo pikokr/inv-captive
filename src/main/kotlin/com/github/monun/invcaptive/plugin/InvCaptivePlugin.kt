@@ -27,28 +27,21 @@ import kotlin.random.Random.Default.nextLong
 class InvCaptivePlugin : JavaPlugin(), Listener {
 
     private lateinit var slotsByType: EnumMap<Material, Int>
+    private lateinit var progressFile: File
+    private lateinit var progressConfig: YamlConfiguration
 
     override fun onEnable() {
+        progressFile = dataFolder.resolve("progress.yml")
+        progressConfig = YamlConfiguration.loadConfiguration(progressFile)
+
+        loadProgress()
+
         val seed = loadSeed()
 
         server.pluginManager.registerEvents(this, this)
         loadInventory()
 
-        val excluded = setOf(
-            Material.STRUCTURE_VOID,
-            Material.WATER,
-            Material.LAVA,
-            Material.DIAMOND_ORE,
-            Material.DEEPSLATE_COAL_ORE,
-            Material.PLAYER_HEAD,
-            Material.PLAYER_WALL_HEAD,
-            Material.DRAGON_EGG
-        )
-
-        val list = Material.entries.filter {
-            it.isBlock && !it.isAir && it.hardness >= 0 && !it.isEmpty && !excluded.contains(it)
-        }
-            .shuffled(Random(seed))
+        val list = blocks.shuffled(Random(seed))
         val count = 9 * 4 + 5
 
         val map = EnumMap<Material, Int>(Material::class.java)
@@ -64,6 +57,10 @@ class InvCaptivePlugin : JavaPlugin(), Listener {
                 requires { sender.hasPermission("invcaptive.command") }
                 executes { InvCaptive.captive() }
             }
+
+            register("progress") {
+                executes { showProgressGUI(player) }
+            }
         }
 
         for (player in Bukkit.getOnlinePlayers()) {
@@ -73,6 +70,16 @@ class InvCaptivePlugin : JavaPlugin(), Listener {
 
     override fun onDisable() {
         save()
+        saveProgress()
+    }
+
+    private fun loadProgress() {
+        InvCaptive.loadProgressFile(progressConfig)
+    }
+
+    private fun saveProgress() {
+        progressConfig.set("items", InvCaptive.triedBlocks.map { it.name })
+        progressConfig.save(progressFile)
     }
 
     private fun loadSeed(): Long {
@@ -148,6 +155,7 @@ class InvCaptivePlugin : JavaPlugin(), Listener {
 
     @EventHandler(ignoreCancelled = true)
     fun onBlockBreak(event: BlockBreakEvent) {
+        InvCaptive.triedBlocks += event.block.type
         slotsByType[event.block.type]?.let {
             if (InvCaptive.release(it)) {
                 for (player in Bukkit.getOnlinePlayers()) {
@@ -165,12 +173,6 @@ class InvCaptivePlugin : JavaPlugin(), Listener {
                         .append(Component.text("블록을 파괴하여 인벤토리 잠금이 한칸 해제되었습니다!"))
                         .build()
                 )
-
-//                Bukkit.broadcastMessage(
-//                    "${ChatColor.RED}${event.player.name}${ChatColor.RESET}님이 ${ChatColor.GOLD}${
-//                        event.block.translationKey.removePrefix("block.minecraft.")
-//                    } ${ChatColor.RESET}블록을 파괴하여 인벤토리 잠금이 한칸 해제되었습니다!"
-//                )
             }
         }
     }
