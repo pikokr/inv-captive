@@ -49,10 +49,12 @@ fun showProgressGUI(player: Player) {
             else InvCaptive.pinnedBlocks.toList() + (blocks - InvCaptive.triedBlocks - InvCaptive.pinnedBlocks)
         }) {
             transform { material ->
-                ItemStack(material).apply {
+                ItemStack(if (material.isItem) material else Material.BARRIER).apply {
                     editMeta {
+                        it.displayName(Component.translatable(material.translationKey()))
                         it.lore(
                             mutableListOf(
+                                Component.text(material.name).color(NamedTextColor.GRAY),
                                 if (InvCaptive.pinnedBlocks.contains(material))
                                     Component.text("클릭해 고정 해제하기").color(NamedTextColor.RED)
                                 else Component.text("클릭해 고정하기").color(NamedTextColor.YELLOW)
