@@ -9,6 +9,7 @@ import net.minecraft.world.item.Items
 import net.minecraft.world.level.block.Blocks
 import org.bukkit.Bukkit
 import org.bukkit.Material
+import org.bukkit.Statistic
 import org.bukkit.configuration.ConfigurationSection
 import org.bukkit.configuration.file.YamlConfiguration
 import org.bukkit.craftbukkit.v1_20_R2.entity.CraftPlayer
@@ -44,6 +45,26 @@ object InvCaptive {
         triedBlocks += yaml.getStringList("items").map { Material.valueOf(it) }
         pinnedBlocks.clear()
         pinnedBlocks += yaml.getStringList("pinnedItems").map { Material.valueOf(it) }
+
+        loadProgressFromStatistics()
+    }
+
+    private fun loadProgressFromStatistics() {
+        val items = (blocks - triedBlocks).toMutableSet()
+
+        Bukkit.getServer().offlinePlayers.forEach { player ->
+            val toRemove = mutableSetOf<Material>()
+
+            items.forEach {
+                if (player.getStatistic(Statistic.MINE_BLOCK, it) > 0) {
+                    triedBlocks += it
+                    toRemove += it
+                    InvCaptivePlugin.plugin.logger.info("Migrated $it")
+                }
+            }
+
+            items -= toRemove
+        }
     }
 
     fun load(yaml: YamlConfiguration) {

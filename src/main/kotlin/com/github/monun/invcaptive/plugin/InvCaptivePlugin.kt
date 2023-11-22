@@ -30,7 +30,13 @@ class InvCaptivePlugin : JavaPlugin(), Listener {
     private lateinit var progressFile: File
     private lateinit var progressConfig: YamlConfiguration
 
+    companion object {
+        lateinit var plugin: InvCaptivePlugin
+    }
+
     override fun onEnable() {
+        plugin = this
+
         progressFile = dataFolder.resolve("progress.yml")
         progressConfig = YamlConfiguration.loadConfiguration(progressFile)
 
