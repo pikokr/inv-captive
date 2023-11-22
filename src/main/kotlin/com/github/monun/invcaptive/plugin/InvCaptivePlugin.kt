@@ -79,6 +79,7 @@ class InvCaptivePlugin : JavaPlugin(), Listener {
 
     private fun saveProgress() {
         progressConfig.set("items", InvCaptive.triedBlocks.map { it.name })
+        progressConfig.set("pinnedItems", InvCaptive.pinnedBlocks.map { it.name })
         progressConfig.save(progressFile)
     }
 
