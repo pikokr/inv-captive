@@ -46,7 +46,7 @@ fun showProgressGUI(player: Player) {
     val frame = InvFX.frame(6, Component.text("남은 블럭")) {
         val items = list(0, 0, 8, 4, true, {
             if (onlyPinned) InvCaptive.pinnedBlocks.toList() - InvCaptive.triedBlocks
-            else InvCaptive.pinnedBlocks.toList() + (blocks - InvCaptive.triedBlocks - InvCaptive.pinnedBlocks)
+            else (InvCaptive.pinnedBlocks.toList() + (blocks - InvCaptive.pinnedBlocks)) - InvCaptive.triedBlocks
         }) {
             transform { material ->
                 ItemStack(if (material.isItem) material else Material.BARRIER).apply {
